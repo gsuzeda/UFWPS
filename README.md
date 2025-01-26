@@ -1,12 +1,9 @@
 # Ultimate Fedora Workstation Post Script (UFWPS)
 
-![Fedora Logo](https://fedoraproject.org/w/uploads/2/2d/Logo_fedoralogo.png)
-
 A powerful and user-friendly post-installation script for Fedora Workstation that helps you set up your system with optimal configurations, essential software, and performance tweaks.
 
 <div align="center">
   <img src="screenshot.png" alt="UFWPS Screenshot" width="800"/>
-  <p><i>UFWPS in action</i></p>
 </div>
 
 ## 🚀 Features
