@@ -339,10 +339,10 @@ install_theme() {
 }
 
 install_extensions() {
-
     sudo dnf install -y gnome-extensions-app gnome-shell-extension-tool
     mkdir -p ~/.local/share/gnome-shell/extensions/
     cp -r ./extensions/* ~/.local/share/gnome-shell/extensions/.
+
     # List of extension IDs
     extensions=(
         "appindicatorsupport@rgcjonas.gmail.com"
@@ -355,16 +355,8 @@ install_extensions() {
         "quick-settings-tweaks@qwreey"
     )
 
-    # Install and enable each extension
-    for ext in "${extensions[@]}"; do
-        out "Enabling Extension: $ext" left info
-        # Enable the extension
-        gnome-extensions enable $ext
-    done
-
     # Install QuickSettingsTweak (which needs to be done after a reboot)
     git clone https://github.com/qwreey/quick-settings-tweaks quicksettings
-    # sed -i 's|glib-compile-schemas --targetdir=src/schemas src/schemas|glib-compile-schemas --targetdir=/tmp/UFWPS/quicksettings/src/schemas /tmp/UFWPS/quicksettings/src/schemas|g' ./quicksettings/install.sh
     cd ./quicksettings
     bash ./install.sh install
     cd ..
@@ -374,24 +366,35 @@ install_extensions() {
         mkdir -p ~/.config/systemd/user
     fi
 
-    # Create a systemd service to activate the extension after reboot at the user level
+    # Create the enable_extensions.sh script to activate the extensions
+    echo "#!/bin/bash" > ~/.config/systemd/user/enable_extensions.sh
+
+    # Loop through the extensions and add the activation command to the script
+    for ext in "${extensions[@]}"; do
+        echo "gnome-extensions enable $ext" >> ~/.config/systemd/user/enable_extensions.sh
+    done
+
+    # Make the script executable
+    chmod +x ~/.config/systemd/user/enable_extensions.sh
+
+    # Create a systemd service to run the script after reboot at the user level
     echo "[Unit]
-    Description=QuickSettingsTweak Setup
+    Description=Extensions Setup
 
     [Service]
     Type=oneshot
-    ExecStart=/usr/bin/gnome-extensions enable quick-settings-tweaks@qwreey
-    ExecStartPost=rm -f ~/.config/systemd/user/oneshotsettingssetup.service
+    ExecStart=%h/.config/systemd/user/enable_extensions.sh
+    ExecStartPost=rm -f %h/.config/systemd/user/extensionssetup.service && %h/.config/systemd/user/enable_extensions.sh
     RemainAfterExit=true
 
     [Install]
     WantedBy=default.target
-    " | tee ~/.config/systemd/user/oneshotsettingssetup.service >/dev/null
+    " | tee ~/.config/systemd/user/extensionssetup.service >/dev/null
 
     # Enable the systemd service to run at the next boot at the user level
-    systemctl --user enable oneshotsettingssetup.service
+    systemctl --user enable extensionssetup.service
 
-    out "All extensions have been installed and enabled successfully!" center success
+    out "All extensions have been installed and will be activated after restarting the system!" center success
 }
 
 # Function to perform system optimizations
