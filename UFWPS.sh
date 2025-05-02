@@ -46,6 +46,12 @@ out() {
     esac
 }
 
+if [ "$EUID" -eq 0 ]
+then
+  out "Please do not run as root or with sudo" center danger
+  exit
+fi
+
 #Custom read input
 input() {
     local prompt="$1"
