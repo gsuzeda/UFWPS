@@ -128,7 +128,7 @@ debloat() {
             "gnome-calculator" "simple-scan" "mediawriter" "gnome-font-viewer"
             "evince" "gnome-disk-utility" "baobab" "eog"
             "gnome-calendar" "gnome-software" "gnome-logs" "loupe"
-            "abrt" "snapshot" "firefox"
+            "abrt" "snapshot" "firefox" "malcontent-control"
         )
     fi
 
@@ -335,7 +335,8 @@ install_theme() {
 
 install_extensions() {
 
-    sudo dnf install -y gnome-extensions gnome-shell-extension-tool
+    sudo dnf install -y gnome-extensions-app gnome-shell-extension-tool
+    mkdir -p ~/.local/share/gnome-shell/extensions/
     cp -r ./extensions/* ~/.local/share/gnome-shell/extensions/.
     # List of extension IDs
     extensions=(
