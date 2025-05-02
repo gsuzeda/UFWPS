@@ -12,9 +12,10 @@
   "shell-version": [
     "45",
     "46",
-    "47"
+    "47",
+    "48"
   ],
   "url": "https://gitlab.com/czarlie/gnome-fuzzy-app-search",
   "uuid": "gnome-fuzzy-app-search@gnome-shell-extensions.Czarlie.gitlab.com",
-  "version": 25
+  "version": 26
 }

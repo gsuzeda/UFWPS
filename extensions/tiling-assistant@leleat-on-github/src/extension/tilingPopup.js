@@ -1,5 +1,6 @@
 import { Clutter, GObject, Meta, St } from '../dependencies/gi.js';
-import { Main, SwitcherPopup } from '../dependencies/shell.js';
+import { Main } from '../dependencies/shell.js';
+import * as SwitcherPopup from '../dependencies/unexported/switcherPopup.js';
 
 import { Direction, Orientation } from '../common.js';
 import { Util } from './utility.js';
@@ -20,7 +21,7 @@ export const TilingSwitcherPopup = GObject.registerClass({
     }
 }, class TilingSwitcherPopup extends AltTab.TilingAppSwitcherPopup {
     /**
-     * @param {Meta.Windows[]} openWindows an array of Meta.Windows, which this
+     * @param {Meta.Window[]} openWindows an array of Meta.Windows, which this
      *      popup offers to tile.
      * @param {Rect} freeScreenRect the Rect, which the popup will tile a window
      *      to. The popup will be centered in this rect.

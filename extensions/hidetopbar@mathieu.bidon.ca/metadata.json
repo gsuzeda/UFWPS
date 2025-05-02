@@ -7,9 +7,10 @@
   "shell-version": [
     "45",
     "46",
-    "47"
+    "47",
+    "48"
   ],
   "url": "https://gitlab.gnome.org/tuxor1337/hidetopbar",
   "uuid": "hidetopbar@mathieu.bidon.ca",
-  "version": 118
+  "version": 120
 }

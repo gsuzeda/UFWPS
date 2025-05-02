@@ -29,15 +29,19 @@ let MOVE_ITEM_FIRST           = false;
 let ENABLE_KEYBINDING         = true;
 let PRIVATEMODE               = false;
 let NOTIFY_ON_COPY            = true;
+let NOTIFY_ON_CYCLE           = true;
 let CONFIRM_ON_CLEAR          = true;
 let MAX_TOPBAR_LENGTH         = 15;
 let TOPBAR_DISPLAY_MODE       = 1; //0 - only icon, 1 - only clipboard content, 2 - both, 3 - neither
 let CLEAR_ON_BOOT             = false;
+let PASTE_ON_SELECT           = false;
 let DISABLE_DOWN_ARROW        = false;
 let STRIP_TEXT                = false;
 let KEEP_SELECTED_ON_CLEAR    = false;
 let PASTE_BUTTON              = true;
 let PINNED_ON_BOTTOM          = false;
+let CACHE_IMAGES              = true;
+let EXCLUDED_APPS             = [];
 
 export default class ClipboardIndicatorExtension extends Extension {
     enable () {
@@ -54,6 +58,7 @@ export default class ClipboardIndicatorExtension extends Extension {
     disable () {
         this.clipboardIndicator.destroy();
         this.clipboardIndicator = null;
+        EXCLUDED_APPS = [];
     }
 }
 
@@ -444,17 +449,6 @@ const ClipboardIndicator = GObject.registerClass({
         menuItem.entry = entry;
         menuItem.clipContents = entry.getStringValue();
         menuItem.radioGroup = this.clipItemsRadioGroup;
-        const allowedKeysyms = [
-            Clutter.KEY_KP_Enter,
-            Clutter.KEY_Return,
-          ];
-        menuItem.keyPressId = menuItem.connect('key-press-event', (actor, event) => {
-            if (allowedKeysyms.includes(event.get_key_symbol())) {
-                this._onMenuItemSelectedAndMenuClose(menuItem, 'activate')
-                return true;
-            }
-            return false;
-        })
         menuItem.buttonPressId = menuItem.connect('activate',
             autoSet => this._onMenuItemSelectedAndMenuClose(menuItem, autoSet));
         menuItem.connect('key-focus-in', () => {
@@ -463,16 +457,25 @@ const ClipboardIndicator = GObject.registerClass({
             AnimationUtils.ensureActorVisibleInScrollView(viewToScroll, menuItem);
         });
         menuItem.actor.connect('key-press-event', (actor, event) => {
-            if(event.get_key_symbol() === Clutter.KEY_Delete) {
-                this.#selectNextMenuItem(menuItem);
-                this._removeEntry(menuItem, 'delete');
-            }
-            else if (event.get_key_symbol() === Clutter.KEY_p) {
-                this.#selectNextMenuItem(menuItem);
-                this._favoriteToggle(menuItem);
-            }
-            else if (event.get_key_symbol() === Clutter.KEY_v) {
-                this.#pasteItem(menuItem);
+            switch (event.get_key_symbol()) {
+                case Clutter.KEY_Delete:
+                    this.#selectNextMenuItem(menuItem);
+                    this._removeEntry(menuItem, 'delete');
+                    break;
+                case Clutter.KEY_p:
+                    this.#selectNextMenuItem(menuItem);
+                    this._favoriteToggle(menuItem);
+                    break;
+                case Clutter.KEY_v:
+                    this.#pasteItem(menuItem);
+                    break;
+                case Clutter.KEY_KP_Enter:
+                case Clutter.KEY_Return:
+                    if (PASTE_ON_SELECT) {
+                        this.#pasteItem(menuItem);
+                    }
+                    this._onMenuItemSelectedAndMenuClose(menuItem, true);
+                    break;
             }
         })
 
@@ -704,6 +707,12 @@ const ClipboardIndicator = GObject.registerClass({
 
     async _refreshIndicator () {
         if (PRIVATEMODE) return; // Private mode, do not.
+
+        const focussedWindow = Shell.Global.get().display.focusWindow;
+        const wmClass = focussedWindow?.get_wm_class();
+        
+        if (wmClass && EXCLUDED_APPS.includes(wmClass)) return; // Excluded app, do not.
+
         if (this.#refreshInProgress) return;
         this.#refreshInProgress = true;
 
@@ -905,17 +914,20 @@ const ClipboardIndicator = GObject.registerClass({
         DELETE_ENABLED         = settings.get_boolean(PrefsFields.DELETE);
         MOVE_ITEM_FIRST        = settings.get_boolean(PrefsFields.MOVE_ITEM_FIRST);
         NOTIFY_ON_COPY         = settings.get_boolean(PrefsFields.NOTIFY_ON_COPY);
+        NOTIFY_ON_CYCLE        = settings.get_boolean(PrefsFields.NOTIFY_ON_CYCLE);
         CONFIRM_ON_CLEAR       = settings.get_boolean(PrefsFields.CONFIRM_ON_CLEAR);
         ENABLE_KEYBINDING      = settings.get_boolean(PrefsFields.ENABLE_KEYBINDING);
         MAX_TOPBAR_LENGTH      = settings.get_int(PrefsFields.TOPBAR_PREVIEW_SIZE);
         TOPBAR_DISPLAY_MODE    = settings.get_int(PrefsFields.TOPBAR_DISPLAY_MODE_ID);
         CLEAR_ON_BOOT          = settings.get_boolean(PrefsFields.CLEAR_ON_BOOT);
+        PASTE_ON_SELECT        = settings.get_boolean(PrefsFields.PASTE_ON_SELECT);
         DISABLE_DOWN_ARROW     = settings.get_boolean(PrefsFields.DISABLE_DOWN_ARROW);
         STRIP_TEXT             = settings.get_boolean(PrefsFields.STRIP_TEXT);
         KEEP_SELECTED_ON_CLEAR = settings.get_boolean(PrefsFields.KEEP_SELECTED_ON_CLEAR);
         PASTE_BUTTON           = settings.get_boolean(PrefsFields.PASTE_BUTTON);
         PINNED_ON_BOTTOM       = settings.get_boolean(PrefsFields.PINNED_ON_BOTTOM);
-
+        CACHE_IMAGES           = settings.get_boolean(PrefsFields.CACHE_IMAGES);
+        EXCLUDED_APPS          = settings.get_strv(PrefsFields.EXCLUDED_APPS);
     }
 
     async _onSettingsChange () {
@@ -985,16 +997,19 @@ const ClipboardIndicator = GObject.registerClass({
         if(TOPBAR_DISPLAY_MODE === 0){
             this.icon.visible = true;
             this._buttonText.visible = false;
+            this._buttonImgPreview.visible = false;
             this.show();
         }
         if(TOPBAR_DISPLAY_MODE === 1){
             this.icon.visible = false;
             this._buttonText.visible = true;
+            this._buttonImgPreview.visible = true;
             this.show();
         }
         if(TOPBAR_DISPLAY_MODE === 2){
             this.icon.visible = true;
             this._buttonText.visible = true;
+            this._buttonImgPreview.visible = true;
             this.show();
         }
         if (TOPBAR_DISPLAY_MODE === 3) {
@@ -1049,7 +1064,10 @@ const ClipboardIndicator = GObject.registerClass({
                 i--;                                 //get the previous index
                 if (i < 0) i = menuItems.length - 1; //cycle if out of bound
                 let index = i + 1;                   //index to be displayed
-                that._showNotification(index + ' / ' + menuItems.length + ': ' + menuItems[i].entry.getStringValue());
+                
+                if(NOTIFY_ON_CYCLE) {
+                    that._showNotification(index + ' / ' + menuItems.length + ': ' + menuItems[i].entry.getStringValue());
+                }
                 if (MOVE_ITEM_FIRST) {
                     that._selectEntryWithDelay(menuItems[i]);
                 }
@@ -1073,7 +1091,10 @@ const ClipboardIndicator = GObject.registerClass({
                 i++;                                 //get the next index
                 if (i === menuItems.length) i = 0;   //cycle if out of bound
                 let index = i + 1;                     //index to be displayed
-                that._showNotification(index + ' / ' + menuItems.length + ': ' + menuItems[i].entry.getStringValue());
+
+                if(NOTIFY_ON_CYCLE) {
+                    that._showNotification(index + ' / ' + menuItems.length + ': ' + menuItems[i].entry.getStringValue());
+                }
                 if (MOVE_ITEM_FIRST) {
                     that._selectEntryWithDelay(menuItems[i]);
                 }
@@ -1157,14 +1178,27 @@ const ClipboardIndicator = GObject.registerClass({
                     return;
                 }
 
+                // HACK: workaround for GNOME 2nd+ copy mangling mimetypes https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/8233
+                // In theory GNOME or XWayland should auto-convert this back to UTF8_STRING for legacy apps when it's needed https://gitlab.gnome.org/GNOME/gtk/-/merge_requests/5300
+                if (type === "UTF8_STRING") {
+                    type = "text/plain;charset=utf-8";
+                }
+                
                 const entry = new ClipboardEntry(type, bytes.get_data(), false);
-                if (entry.isImage()) {
+                if (CACHE_IMAGES && entry.isImage()) {
                     this.registry.writeEntryFile(entry);
                 }
                 resolve(entry);
             }));
 
-            if (result) return result;
+            if (result) {
+                if (!CACHE_IMAGES && result.isImage()) {
+                    return null;
+                }
+                else {
+                    return result;
+                }
+            }
         }
 
         return null;

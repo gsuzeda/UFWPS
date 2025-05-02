@@ -14,7 +14,7 @@ import {
 } from '../dependencies/shell.js';
 import * as AltTab from '../dependencies/unexported/altTab.js';
 
-import { FocusHint, Settings } from '../common.js';
+import { FocusHint, FocusHintOutlineStyle, Settings } from '../common.js';
 
 export default class FocusHintManager {
     _hint = null;
@@ -36,8 +36,7 @@ export default class FocusHintManager {
 
         this._settingsChangedId = Settings.changed(
             'focus-hint',
-            () => this._setHint(),
-            this
+            () => this._setHint()
         );
         this._setHint();
 
@@ -97,7 +96,9 @@ class Hint {
         this._removeIdleWatcher();
     }
 
-    indicate() {
+    /** @param {Meta.Window} focus */
+    // eslint-disable-next-line no-unused-vars
+    indicate(focus) {
         throw new Error('`indicate` not implemented by Hint subclass!');
     }
 
@@ -195,7 +196,7 @@ class Hint {
             const key = `switch-to-application-${i}`;
 
             if (global.display.remove_keybinding(key)) {
-                const handler = (_, __, keybinding) => {
+                const handler = (_, __, ___, keybinding) => {
                     if (!Main.sessionMode.hasOverview)
                         return;
 
@@ -354,6 +355,7 @@ class AnimatedOutlineHint extends Hint {
     _color = '';
     _outlineSize = 0;
     _outlineBorderRadius = 0;
+    _outlineStyle = 0;
 
     constructor() {
         super();
@@ -372,12 +374,18 @@ class AnimatedOutlineHint extends Hint {
         this._outlineBorderRadiusChangeId = Settings.changed('focus-hint-outline-border-radius', () => {
             this._outlineBorderRadius = Settings.getInt('focus-hint-outline-border-radius');
         });
+
+        this._outlineStyle = Settings.getInt('focus-hint-outline-style');
+        this._outlineStyleChangeId = Settings.changed('focus-hint-outline-style', () => {
+            this._outlineStyle = Settings.getInt('focus-hint-outline-style');
+        });
     }
 
     destroy() {
         Settings.disconnect(this._colorChangeId);
         Settings.disconnect(this._outlineSizeChangeId);
         Settings.disconnect(this._outlineBorderRadiusChangeId);
+        Settings.disconnect(this._outlineStyleChangeId);
 
         super.destroy();
     }
@@ -457,8 +465,13 @@ class AnimatedOutlineHint extends Hint {
     }
 
     _getCssStyle() {
+        const backgroundColor = this._outlineStyle === FocusHintOutlineStyle.SOLID_BG
+            ? `background-color: ${this._color};`
+            : '';
+
         return `
-            background-color: ${this._color};
+            ${backgroundColor}
+            border: ${this._outlineSize}px solid ${this._color};
             border-radius: ${this._outlineBorderRadius}px;
         `;
     }
@@ -558,6 +571,8 @@ class StaticOutlineHint extends AnimatedOutlineHint {
             () => this._updateOutline(),
             'changed::focus-hint-outline-border-radius',
             () => this._updateOutline(),
+            'changed::focus-hint-outline-style',
+            () => this._updateOutline(),
             this
         );
     }
@@ -583,7 +598,7 @@ class StaticOutlineHint extends AnimatedOutlineHint {
     /**
      * This is really only used for the indication when changing workspaces...
      *
-     * @param {Window} window -
+     * @param {Meta.Window} window -
      * @param {number} workspaceSwitchAnimationDuration -
      */
     indicate(window, workspaceSwitchAnimationDuration = 250) {
@@ -640,19 +655,6 @@ class StaticOutlineHint extends AnimatedOutlineHint {
             global.compositor.get_laters().remove(this._laterID);
             this._laterID = 0;
         }
-    }
-
-    _createOutline(window, monitorContainer) {
-        const { x, y, width, height } = window.get_frame_rect();
-        const outline = new St.Widget({
-            style: this._getCssStyle(),
-            x: x - monitorContainer.x - this._outlineSize,
-            y: y - monitorContainer.y - this._outlineSize,
-            width: width + 2 * this._outlineSize,
-            height: height + 2 * this._outlineSize
-        });
-
-        return outline;
     }
 
     _queueGeometryUpdate() {
@@ -763,8 +765,8 @@ function createContainers(
     let startingPos;
 
     if (workspaceAnimationWindowClone) {
-        const actorAbsPos = getAbsPos(window.get_compositor_private(), monitorNr);
-        const cloneAbsPos = getAbsPos(workspaceAnimationWindowClone, monitorNr);
+        const actorAbsPos = getAbsPos(window.get_compositor_private());
+        const cloneAbsPos = getAbsPos(workspaceAnimationWindowClone);
 
         startingPos = {
             x: monitorRect.x + cloneAbsPos.x - actorAbsPos.x,
@@ -826,8 +828,7 @@ function createContainers(
  * @returns {Clutter.Clone}
  */
 function createWindowClone(windowActor, container) {
-    const monitor = windowActor.get_meta_window().get_monitor();
-    const { x, y } = getAbsPos(windowActor, monitor);
+    const { x, y } = getAbsPos(windowActor);
 
     const windowClone = new Clutter.Clone({
         source: windowActor,
