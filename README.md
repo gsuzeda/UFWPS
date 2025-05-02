@@ -26,7 +26,6 @@ A powerful and user-friendly post-installation script for Fedora Workstation tha
 
 ### Desktop Environment
 - GNOME extensions installation:
-  - Blur My Shell
   - App Indicators Support
   - Tiling Assistant
   - Hide Top Bar
@@ -78,6 +77,17 @@ chmod +x UFWPS.sh
 ```bash
 ./UFWPS.sh
 ```
+
+## 🌟 Recommendations
+
+### Blur My Shell
+Enhance your GNOME desktop with the Blur My Shell extension for a modern and sleek look. Check it out here:
+[Blur My Shell](https://github.com/aunetx/blur-my-shell)
+
+### Zsh with Oh My Zsh and/or Oh My Posh
+Upgrade your terminal experience with Zsh and powerful customization tools:
+- [Oh My Zsh](https://ohmyz.sh/): A delightful framework for managing your Zsh configuration.
+- [Oh My Posh](https://ohmyposh.dev/): A prompt theme engine for any shell.
 
 ## 🤝 Contributing
 

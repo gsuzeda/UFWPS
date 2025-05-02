@@ -210,7 +210,6 @@ show_help() {
         "extensions")
             out "GNOME Extensions Installation Details:" center info
             out "- Will install several productivity-enhancing extensions:" left
-            out "  • Blur My Shell: Adds blur effects to shell elements" left
             out "  • App Indicators: Adds support for legacy tray icons" left
             out "  • Tiling Assistant: Improves window management" left
             out "  • Hide Top Bar: Automatically hides the top panel" left
@@ -346,7 +345,6 @@ install_extensions() {
     cp -r ./extensions/* ~/.local/share/gnome-shell/extensions/.
     # List of extension IDs
     extensions=(
-        "blur-my-shell@aunetx"
         "appindicatorsupport@rgcjonas.gmail.com"
         "tiling-assistant@leleat-on-github"
         "hidetopbar@mathieu.bidon.ca"
